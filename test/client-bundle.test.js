@@ -51,6 +51,7 @@ test('the host grants sound and fallback; tabs do not infer ownership', async ()
   assert.match(source, /result\.fallback === true && state\.prefs\.browserNotification/)
   assert.match(source, /phase: 'close'/)
   assert.match(source, /lastWait/)
+  assert.match(source, /previous === false && row\.running === true/)
 })
 
 test('blocking waits release the tab title and re-arm the next occurrence', async () => {

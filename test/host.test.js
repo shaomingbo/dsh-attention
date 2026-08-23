@@ -119,6 +119,20 @@ test('the host mints one identity per edge, whatever key a client reports', asyn
   assert.equal(sent.length, 2)
 })
 
+test('a tab that reports before the host increments still shares the edge', async () => {
+  const { host, sent, clock } = await createHost()
+  await host.handle('visibility', { visibility: 'hidden' })
+  clock.now = 60_000
+
+  await host.onAgentStatus({ agent: { id: 's1' }, status: 'running' })
+  await host.handle('notify', { kind: 'completed', sessionId: 's1', key: 'completed:s1:tabA', sound: false })
+  await host.onAgentStatus({ agent: { id: 's1' }, status: 'idle' })
+  const late = await host.handle('notify', { kind: 'completed', sessionId: 's1', key: 'completed:s1:tabB', sound: false })
+  assert.equal(late.value.accepted, false)
+  assert.equal(late.value.reason, 'deduped')
+  assert.equal(sent.length, 1)
+})
+
 test('the same client wait key reported twice is deduped with the banner fact', async () => {
   const { host, sent } = await createHost()
   await host.handle('notify', { kind: 'approval', sessionId: 's1', key: 'approval:s1:wait' })
