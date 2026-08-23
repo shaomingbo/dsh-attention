@@ -45,12 +45,11 @@ test('startup edges are stashed before prefs load and flushed after', async () =
   assert.match(source, /else if \(!pending\.some/)
 })
 
-test('a deduped echo owns no sound, so concurrent tabs cannot double-chime', async () => {
+test('the host grants sound and fallback; tabs do not infer ownership', async () => {
   const source = await readFile(clientPath, 'utf8')
-  assert.match(source, /const verdict = \(result\) => \(\{/)
-  assert.match(source, /result\.accepted !== false/)
-  assert.match(source, /outcome\.soundOwned\) playTone/)
-  assert.match(source, /result\.reason === 'deduped' && result\.banner === true/)
+  assert.match(source, /result\.sound === true && state\.prefs\.sound/)
+  assert.match(source, /result\.fallback === true && state\.prefs\.browserNotification/)
+  assert.match(source, /attention\.updatedAt \?\? 0/)
 })
 
 test('blocking waits release the tab title and re-arm the next occurrence', async () => {
@@ -59,6 +58,6 @@ test('blocking waits release the tab title and re-arm the next occurrence', asyn
   // is looking; lastKey resets so the same session can ring again.
   assert.match(source, /if \(flashTimer\.current === null\) \{/)
   assert.match(source, /if \(attention === null\) lastKey\.current = null/)
-  assert.match(source, /const outcome = verdict\(await notifyHost/)
+  assert.match(source, /applyOutcome\(await notifyHost/)
   assert.match(source, /sound: false,/)
 })

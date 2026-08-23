@@ -138,25 +138,28 @@ test('two distinct questions inside the dedupe window both notify', async () => 
   assert.equal(sent.length, 2)
 })
 
-test('a dedupe that delivered no banner says so, so the client falls back', async () => {
-  const { host, sent, home } = await createHost()
+test('native-disabled grants fallback and sound to exactly one tab', async () => {
+  const { host, sent } = await createHost()
   await host.handle('prefs.set', { prefs: { native: false } })
   const first = await host.handle('notify', {
     kind: 'completed', sessionId: 's1', key: 'completed:s1:1', sound: false,
   })
   assert.equal(first.value.accepted, true)
   assert.equal(first.value.reason, 'native-disabled')
-  const resumed = await host.handle('notify', {
-    kind: 'completed', sessionId: 's1', key: 'completed:s1:1', sound: false,
+  assert.equal(first.value.fallback, true)
+  assert.equal(first.value.sound, true)
+  const second = await host.handle('notify', {
+    kind: 'completed', sessionId: 's1', key: 'completed:s1:tabB', sound: false,
   })
-  assert.equal(resumed.value.accepted, false)
-  assert.equal(resumed.value.reason, 'deduped')
-  assert.equal(resumed.value.banner, false)
+  assert.equal(second.value.accepted, false)
+  assert.equal(second.value.reason, 'deduped')
+  assert.equal(second.value.banner, true)
+  assert.equal(second.value.fallback, false)
+  assert.equal(second.value.sound, false)
   assert.equal(sent.length, 0)
-  void home
 })
 
-test('a failed native send is not recorded as delivered, so a retry can fall back', async () => {
+test('a failed native send soft-records so concurrent echoes collapse, then retries later', async () => {
   const clock = { now: 1_000 }
   const attempts = []
   const host = createAttentionHost({
@@ -171,13 +174,38 @@ test('a failed native send is not recorded as delivered, so a retry can fall bac
     kind: 'completed', sessionId: 's1', key: 'completed:s1:1', sound: false,
   })
   assert.equal(first.value.accepted, true)
-  assert.equal(first.value.native, false)
-  const resumed = await host.handle('notify', {
+  assert.equal(first.value.fallback, true)
+  assert.equal(first.value.sound, true)
+  const echo = await host.handle('notify', {
     kind: 'completed', sessionId: 's1', key: 'completed:s1:1', sound: false,
   })
-  assert.equal(resumed.value.accepted, true)
-  assert.equal(resumed.value.native, false)
+  assert.equal(echo.value.accepted, false)
+  assert.equal(echo.value.reason, 'deduped')
+  assert.equal(attempts.length, 1)
+  clock.now = 7_000
+  const retry = await host.handle('notify', {
+    kind: 'completed', sessionId: 's1', key: 'completed:s1:1', sound: false,
+  })
+  assert.equal(retry.value.accepted, true)
+  assert.equal(retry.value.fallback, true)
   assert.equal(attempts.length, 2)
+})
+
+test('concurrent reports of one completion single-flight to one native send', async () => {
+  const { host, sent } = await createHost()
+  const [a, b] = await Promise.all([
+    host.handle('notify', { kind: 'completed', sessionId: 's1', key: 'completed:s1:tabA', sound: false }),
+    host.handle('notify', { kind: 'completed', sessionId: 's1', key: 'completed:s1:tabB', sound: false }),
+  ])
+  assert.equal(sent.length, 1)
+  const sounds = [a.value, b.value].filter((v) => v.sound === true)
+  const accepted = [a.value, b.value].filter((v) => v.accepted === true)
+  assert.equal(sounds.length, 1)
+  assert.equal(accepted.length, 1)
+  const other = [a.value, b.value].find((v) => v.accepted === false)
+  assert.equal(other.reason, 'deduped')
+  assert.equal(other.sound, false)
+  assert.equal(other.fallback, false)
 })
 
 test('two tabs reporting the same window bucket produce one banner', async () => {
@@ -229,33 +257,33 @@ test('a stale heartbeat lets the backup fire, once per running→idle edge', asy
   await host.onApprovalRequest({ agent: { id: 's1' }, toolName: 'bash' }, async () => 'ok')
   assert.equal(sent.length, 2)
 
-  // The client tab reporting that same second ask collapses onto its ordinal
-  // only when its key repeats; a fresh client key maps to a fresh ordinal.
+  // Client reports collapse onto the waterfall's current ordinal — they
+  // never mint a new one, so a recovering tab cannot double-notify.
   const echo = await host.handle('notify', {
-    kind: 'approval', sessionId: 's1', key: 'approval:s1:tab', sound: false,
+    kind: 'approval', sessionId: 's1', key: 'approval:s1:tabA', sound: false,
   })
-  assert.equal(echo.value.accepted, true)
-  assert.equal(sent.length, 3)
-  const sameWait = await host.handle('notify', {
-    kind: 'approval', sessionId: 's1', key: 'approval:s1:tab', sound: false,
+  assert.equal(echo.value.accepted, false)
+  assert.equal(echo.value.reason, 'deduped')
+  assert.equal(sent.length, 2)
+  const otherTab = await host.handle('notify', {
+    kind: 'approval', sessionId: 's1', key: 'approval:s1:tabB', sound: false,
   })
-  assert.equal(sameWait.value.accepted, false)
-  assert.equal(sameWait.value.reason, 'deduped')
-  assert.equal(sent.length, 3)
+  assert.equal(otherTab.value.accepted, false)
+  assert.equal(sent.length, 2)
 
   // First idle observation records the edge start; only running→idle fires.
   await host.onAgentStatus({ agent: { id: 's2' }, status: 'idle' })
-  assert.equal(sent.length, 3)
+  assert.equal(sent.length, 2)
   await host.onAgentStatus({ agent: { id: 's2' }, status: 'running' })
   await host.onAgentStatus({ agent: { id: 's2' }, status: 'idle' })
-  assert.equal(sent.length, 4)
+  assert.equal(sent.length, 3)
   assert.equal(sent.at(-1).kind, 'completed')
 
   // A second completion for the same session within 30s still notifies.
   clock.now = 61_000
   await host.onAgentStatus({ agent: { id: 's2' }, status: 'running' })
   await host.onAgentStatus({ agent: { id: 's2' }, status: 'idle' })
-  assert.equal(sent.length, 5)
+  assert.equal(sent.length, 4)
 })
 
 test('approval next still runs when notify throws', async () => {

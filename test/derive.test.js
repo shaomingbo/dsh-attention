@@ -26,6 +26,7 @@ test('deriveAttention prefers approval over questions and completed', () => {
     sessionId: 'c',
     displayTitle: 'Need allow',
     key: 'approval:c',
+    updatedAt: 0,
     priority: 0,
   })
 })
