@@ -1,0 +1,7 @@
+# Optional DeepSeek Harness Web attention bundle.
+# Installed through `dsh plugin --profile web add github:shaomingbo/dsh-attention#v0.1.0`.
+# Host half owns native OS notifications; the client half owns tab title, favicon, and sound.
+
+- insert:
+    - id: dsh-attention
+      name: dsh-attention
