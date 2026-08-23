@@ -3,10 +3,11 @@ import test from 'node:test'
 
 import {
   applyTitlePrefix,
-  clientLooksPresent,
+  clientAlive,
   defaultPrefs,
   deriveAttention,
   eventEnabled,
+  holdsTabAttention,
   mergePrefs,
   pageIsAttentive,
   shouldAccept,
@@ -38,6 +39,14 @@ test('deriveAttention ignores completed on the current session', () => {
   assert.equal(attention.kind, 'completed')
 })
 
+test('deriveAttention can treat the selected session going idle as completed', () => {
+  const rows = [{ id: 'current', displayTitle: 'Here', running: false }]
+  assert.equal(deriveAttention(rows, 'current', defaultPrefs()), null)
+  const attention = deriveAttention(rows, 'current', defaultPrefs(), { selectedJustIdle: true })
+  assert.equal(attention.kind, 'completed')
+  assert.equal(attention.sessionId, 'current')
+})
+
 test('deriveAttention respects event toggles and the master switch', () => {
   const prefs = mergePrefs({
     events: { approval: false, question: true, completed: false },
@@ -58,14 +67,23 @@ test('title prefix can be applied and stripped without eating the product title'
   assert.equal(stripTitlePrefix(applyTitlePrefix(prefixed, 'completed', 'en')), '浏览器失焦交互优化 — DeepSeek Harness')
 })
 
-test('page attention and heartbeat presence are conservative', () => {
+test('page attention and heartbeat aliveness are conservative', () => {
   assert.equal(pageIsAttentive('visible', true), true)
   assert.equal(pageIsAttentive('visible', false), false)
   assert.equal(pageIsAttentive('hidden', true), false)
-  assert.equal(clientLooksPresent('visible', 1000, 2000), true)
-  assert.equal(clientLooksPresent('visible', 1000, 20_000), false)
-  assert.equal(clientLooksPresent('hidden', 1000, 2000), false)
-  assert.equal(clientLooksPresent('visible', undefined, 2000), false)
+  // Aliveness ignores visibility: a hidden-but-live tab still owns banners.
+  assert.equal(clientAlive(1000, 2000), true)
+  assert.equal(clientAlive(1000, 20_000), false)
+  assert.equal(clientAlive(undefined, 2000), false)
+  assert.equal(clientAlive(1000, 9000), true)
+  assert.equal(clientAlive(1000, 9001), false)
+})
+
+test('only blocking waits keep the tab title', () => {
+  assert.equal(holdsTabAttention('approval'), true)
+  assert.equal(holdsTabAttention('question'), true)
+  assert.equal(holdsTabAttention('plan-review'), true)
+  assert.equal(holdsTabAttention('completed'), false)
 })
 
 test('shouldAccept dedupes the same key inside the window', () => {

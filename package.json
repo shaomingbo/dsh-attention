@@ -19,7 +19,9 @@
     "lib/index.js",
     "lib/derive.js",
     "lib/native.js",
-    "lib/prefs.js",
+    "lib/sounds/render.js",
+    "lib/sounds/approval.wav",
+    "lib/sounds/completed.wav",
     "lib/client.js",
     "README.md",
     "README.zh.md",
@@ -27,7 +29,8 @@
   ],
   "scripts": {
     "test": "node --test",
-    "check": "node --check lib/*.js && node --check bin/install.js && node --test"
+    "sounds": "node lib/sounds/build.js",
+    "check": "node --check lib/*.js && node --check lib/sounds/*.js && node --check bin/install.js && node --test"
   },
   "dsh": {
     "bundle": {

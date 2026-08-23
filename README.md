@@ -2,18 +2,26 @@
 
 Desktop attention alerts for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web.
 
-When the GUI tab is hidden or unfocused, the bundle tells you that an agent is waiting for approval / a question / a plan review, or that a background session finished. It is a GitHub-distributed DSH bundle, not a shell modification.
+The bundle tells you when a session finishes a turn (always — even the one you are reading) and when an agent is waiting for approval, a question, or a plan review (while the page is in the background). It is a GitHub-distributed DSH bundle, not a shell modification.
 
 ## What it does
 
-| Channel | When it fires |
+| Event | When it alerts |
 |---|---|
-| Tab title prefix + favicon badge | Page is in the background and something needs you |
-| Short Web Audio chime | Same edge, if sound is enabled |
-| Native OS notification | Host-side banner (macOS `osascript`, Linux `notify-send`, Windows toast) |
-| Browser `Notification` | Fallback only when native notify is unavailable |
+| Task finished (any session, including the one you are reading) | Always: sound + tab title flash + system banner |
+| Approval / plan review / question | While this page is in the background or unfocused |
 
-The page does not beep or banner while you are looking at it. Opening a finished session clears the built-in green "completed" reminder; this plugin follows that same rule.
+Each channel is independent and can be toggled in **Settings → Alerts**:
+
+| Channel | Owner |
+|---|---|
+| Short chime (Web Audio, OpenCode/Codex-style) | The page, whenever it is open |
+| Tab title prefix + favicon badge | The page (blocking waits hold it; finished flashes ~4 s) |
+| Native OS banner (`osascript` / `notify-send` / Windows toast) | The host |
+
+**Single-producer rule:** while a browser tab is alive (heartbeat fresher than ~8 s), the page owns the banner and the chime; the host backs off. If every tab is closed or frozen, the host fires the banner itself (with the bundled chime) — no duplicates, no gaps. Approvals heard by the host carry `id`/`callId` and completions carry a per-session ordinal, so two real events inside the 30-second dedupe window both notify, while a replayed duplicate of the same event does not.
+
+When the native notifier binary is missing (`notify-send` absent, and so on), the host reports it, the Alerts page shows native notifications as unavailable, and the browser `Notification` fallback takes over automatically.
 
 ## Install
 
@@ -60,10 +68,10 @@ Preferences live in `$DSH_HOME/attention.json` (default `~/.dsh/attention.json`)
 
 ## Behaviour notes
 
+- Finished turns alert unconditionally — watching the page included. Approvals and questions stay quiet while you are looking at the page.
 - Native notifications are loopback-only. A remote Web GUI cannot trigger them.
 - The host listens to `approval/request` but always calls `next()`. It never answers an approval.
-- Questions have no host-side backup if no browser client is connected. Approvals and completions still can, when the last visibility heartbeat is hidden or stale.
-- The first visit may show a toast asking for browser notification permission. That permission is only used as a fallback.
+- The first visit may show a toast asking for browser notification permission. That permission is only used as a fallback when native notifications are unavailable.
 
 ## Development
 
