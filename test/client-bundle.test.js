@@ -49,7 +49,8 @@ test('the host grants sound and fallback; tabs do not infer ownership', async ()
   const source = await readFile(clientPath, 'utf8')
   assert.match(source, /result\.sound === true && state\.prefs\.sound/)
   assert.match(source, /result\.fallback === true && state\.prefs\.browserNotification/)
-  assert.match(source, /attention\.updatedAt \?\? 0/)
+  assert.match(source, /phase: 'close'/)
+  assert.match(source, /lastWait/)
 })
 
 test('blocking waits release the tab title and re-arm the next occurrence', async () => {
@@ -57,7 +58,7 @@ test('blocking waits release the tab title and re-arm the next occurrence', asyn
   // Clearing branch runs when the plugin is off, nothing blocks, or the user
   // is looking; lastKey resets so the same session can ring again.
   assert.match(source, /if \(flashTimer\.current === null\) \{/)
-  assert.match(source, /if \(attention === null\) lastKey\.current = null/)
+  assert.match(source, /if \(wait === null\) lastKey\.current = null/)
   assert.match(source, /applyOutcome\(await notifyHost/)
   assert.match(source, /sound: false,/)
 })

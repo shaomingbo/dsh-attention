@@ -130,10 +130,15 @@ test('the same client wait key reported twice is deduped with the banner fact', 
   assert.equal(sent.length, 1)
 })
 
-test('two distinct questions inside the dedupe window both notify', async () => {
+test('two distinct questions notify only when the live wait is released', async () => {
   const { host, sent } = await createHost()
-  await host.handle('notify', { kind: 'question', sessionId: 's1', key: 'question:s1:wait:1' })
-  const second = await host.handle('notify', { kind: 'question', sessionId: 's1', key: 'question:s1:wait:2' })
+  await host.handle('notify', { kind: 'question', sessionId: 's1', key: 'question:s1:open' })
+  const echo = await host.handle('notify', { kind: 'question', sessionId: 's1', key: 'question:s1:other-tab' })
+  assert.equal(echo.value.accepted, false)
+  assert.equal(echo.value.reason, 'deduped')
+  assert.equal(sent.length, 1)
+  await host.handle('notify', { kind: 'question', sessionId: 's1', key: 'question:s1:open', phase: 'close' })
+  const second = await host.handle('notify', { kind: 'question', sessionId: 's1', key: 'question:s1:open' })
   assert.equal(second.value.accepted, true)
   assert.equal(sent.length, 2)
 })
@@ -188,6 +193,29 @@ test('a failed native send soft-records so concurrent echoes collapse, then retr
   })
   assert.equal(retry.value.accepted, true)
   assert.equal(retry.value.fallback, true)
+  assert.equal(attempts.length, 2)
+})
+
+test('a failed backup leaves the event unclaimed so a recovering tab can fall back', async () => {
+  const clock = { now: 60_000 }
+  const attempts = []
+  const host = createAttentionHost({
+    home: await mkdtemp(join(tmpdir(), 'dsh-attention-')),
+    now: () => clock.now,
+    notify: async (event) => {
+      attempts.push(event)
+      return { ok: false, reason: 'binary-missing' }
+    },
+  })
+  await host.onAgentStatus({ agent: { id: 's1' }, status: 'running' })
+  await host.onAgentStatus({ agent: { id: 's1' }, status: 'idle' })
+  assert.equal(attempts.length, 1)
+  const recovered = await host.handle('notify', {
+    kind: 'completed', sessionId: 's1', key: 'completed:s1:tab', sound: false,
+  })
+  assert.equal(recovered.value.accepted, true)
+  assert.equal(recovered.value.fallback, true)
+  assert.equal(recovered.value.sound, true)
   assert.equal(attempts.length, 2)
 })
 
