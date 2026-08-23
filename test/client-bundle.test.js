@@ -31,13 +31,26 @@ test('browser bundle implements title, favicon, sound, and notification fallback
   assert.match(source, /988/)
 })
 
-test('completions fire on the running edge with window-bucketed keys', async () => {
+test('completions fire on the running edge with host-minted identity', async () => {
   const source = await readFile(clientPath, 'utf8')
   assert.match(source, /previous === true && row\.running === false/)
   assert.match(source, /fireCompleted/)
-  assert.match(source, /Math\.floor\(Date\.now\(\) \/ 30_000\)/)
-  assert.doesNotMatch(source, /fireSeq/)
   assert.doesNotMatch(source, /__DSH_ATTENTION_TEST/)
+})
+
+test('startup edges are stashed before prefs load and flushed after', async () => {
+  const source = await readFile(clientPath, 'utf8')
+  assert.match(source, /stashedCompletions/)
+  assert.match(source, /if \(state\.loaded\) fireCompleted/)
+  assert.match(source, /else if \(!pending\.some/)
+})
+
+test('a deduped echo owns no sound, so concurrent tabs cannot double-chime', async () => {
+  const source = await readFile(clientPath, 'utf8')
+  assert.match(source, /const verdict = \(result\) => \(\{/)
+  assert.match(source, /result\.accepted !== false/)
+  assert.match(source, /outcome\.soundOwned\) playTone/)
+  assert.match(source, /result\.reason === 'deduped'/)
 })
 
 test('blocking waits release the tab title and re-arm the next occurrence', async () => {
@@ -46,7 +59,6 @@ test('blocking waits release the tab title and re-arm the next occurrence', asyn
   // is looking; lastKey resets so the same session can ring again.
   assert.match(source, /if \(flashTimer\.current === null\) \{/)
   assert.match(source, /if \(attention === null\) lastKey\.current = null/)
-  assert.match(source, /bannerHandled = await notifyHost/)
-  assert.match(source, /result\.native === true \|\| result\.reason === 'deduped'/)
+  assert.match(source, /const outcome = verdict\(await notifyHost/)
   assert.match(source, /sound: false,/)
 })

@@ -19,7 +19,7 @@ Each channel is independent and can be toggled in **Settings → Alerts**:
 | Tab title prefix + favicon badge | The page (blocking waits hold it; finished flashes ~4 s) |
 | Native OS banner (`osascript` / `notify-send` / Windows toast) | The host |
 
-**Single-producer rule:** while a browser tab is alive (heartbeat fresher than ~8 s), the page owns the banner and the chime; the host backs off. If every tab is closed or frozen, the host fires the banner itself (with the bundled chime) — no duplicates, no gaps. Approvals heard by the host carry `id`/`callId` and completions carry a per-session ordinal, so two real events inside the 30-second dedupe window both notify, while a replayed duplicate of the same event does not.
+**Single-producer rule:** while a browser tab is alive (heartbeat fresher than ~8 s), the page owns the banner and the chime; the host backs off. If every tab is closed or frozen, the host fires the banner itself (with the bundled chime) — no duplicates, no gaps. The host is also the sole identity minter for completions and approvals: every report of the same edge — backup listener, first tab, second tab — resolves to one per-session ordinal, so concurrent tabs collapse to a single banner (and only the accepted producer owns the chime), while a genuinely new edge always gets a fresh identity. Completion edges observed while preferences are still loading are stashed and flushed once loaded, so a startup race cannot swallow a notification.
 
 When the native notifier binary is missing (`notify-send` absent, and so on), the host reports it, the Alerts page shows native notifications as unavailable, and the browser `Notification` fallback takes over automatically.
 

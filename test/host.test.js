@@ -83,19 +83,40 @@ test('client notify requires a unique key and persists prefs', async () => {
   assert.equal(stored.enabled, true)
 })
 
-test('two distinct completions inside the dedupe window both notify', async () => {
+test('two distinct completion edges inside the dedupe window both notify', async () => {
   const { host, sent, clock } = await createHost()
+  await host.handle('visibility', { visibility: 'hidden' })
+  clock.now = 60_000
 
-  const first = await host.handle('notify', {
-    kind: 'completed', sessionId: 's1', key: 'completed:s1:1', sound: false,
-  })
-  const second = await host.handle('notify', {
-    kind: 'completed', sessionId: 's1', key: 'completed:s1:2', sound: false,
-  })
-  assert.equal(first.value.accepted, true)
-  assert.equal(second.value.accepted, true)
+  await host.onAgentStatus({ agent: { id: 's1' }, status: 'running' })
+  await host.onAgentStatus({ agent: { id: 's1' }, status: 'idle' })
+  await host.onAgentStatus({ agent: { id: 's1' }, status: 'running' })
+  await host.onAgentStatus({ agent: { id: 's1' }, status: 'idle' })
   assert.equal(sent.length, 2)
-  assert.equal(clock.now, 1_000)
+  assert.ok(sent.every((event) => event.kind === 'completed'))
+})
+
+test('the host mints one identity per edge, whatever key a client reports', async () => {
+  const { host, sent, clock } = await createHost()
+  clock.now = 60_000
+
+  // Tab A and tab B invent different keys for the same observed edge.
+  await host.handle('notify', { kind: 'completed', sessionId: 's1', key: 'completed:s1:tabA', sound: false })
+  const echo = await host.handle('notify', { kind: 'completed', sessionId: 's1', key: 'completed:s1:tabB', sound: false })
+  assert.equal(echo.value.accepted, false)
+  assert.equal(echo.value.reason, 'deduped')
+  assert.equal(sent.length, 1)
+
+  // The host sees the edge itself afterwards (e.g. a recovering tab race):
+  // same ordinal, still one banner.
+  await host.onAgentStatus({ agent: { id: 's1' }, status: 'running' })
+  await host.onAgentStatus({ agent: { id: 's1' }, status: 'idle' })
+  assert.equal(sent.length, 1)
+
+  // A genuinely new edge gets a fresh ordinal and rings again.
+  await host.onAgentStatus({ agent: { id: 's1' }, status: 'running' })
+  await host.onAgentStatus({ agent: { id: 's1' }, status: 'idle' })
+  assert.equal(sent.length, 2)
 })
 
 test('the same key delivered twice is deduped and reports no banner', async () => {
@@ -149,27 +170,35 @@ test('a stale heartbeat lets the backup fire, once per running→idle edge', asy
   await host.handle('visibility', { visibility: 'hidden' })
   clock.now = 60_000
 
-  await host.onApprovalRequest({ agent: { id: 's1' }, id: 'a1', callId: 'c1', toolName: 'bash' }, async () => 'ok')
+  await host.onApprovalRequest({ agent: { id: 's1' }, callId: 'c1', toolName: 'bash' }, async () => 'ok')
   assert.equal(sent.length, 1)
   assert.equal(sent[0].kind, 'approval')
 
-  // Replayed duplicate of the same approval event: deduped.
-  await host.onApprovalRequest({ agent: { id: 's1' }, id: 'a1', callId: 'c1', toolName: 'bash' }, async () => 'ok')
-  assert.equal(sent.length, 1)
+  // A second ask without callId still gets its own ordinal and notifies.
+  await host.onApprovalRequest({ agent: { id: 's1' }, toolName: 'bash' }, async () => 'ok')
+  assert.equal(sent.length, 2)
+
+  // The client tab reporting that same second ask collapses onto its ordinal.
+  const echo = await host.handle('notify', {
+    kind: 'approval', sessionId: 's1', key: 'approval:s1:tab', sound: false,
+  })
+  assert.equal(echo.value.accepted, false)
+  assert.equal(echo.value.reason, 'deduped')
+  assert.equal(sent.length, 2)
 
   // First idle observation records the edge start; only running→idle fires.
   await host.onAgentStatus({ agent: { id: 's2' }, status: 'idle' })
-  assert.equal(sent.length, 1)
+  assert.equal(sent.length, 2)
   await host.onAgentStatus({ agent: { id: 's2' }, status: 'running' })
   await host.onAgentStatus({ agent: { id: 's2' }, status: 'idle' })
-  assert.equal(sent.length, 2)
+  assert.equal(sent.length, 3)
   assert.equal(sent.at(-1).kind, 'completed')
 
   // A second completion for the same session within 30s still notifies.
   clock.now = 61_000
   await host.onAgentStatus({ agent: { id: 's2' }, status: 'running' })
   await host.onAgentStatus({ agent: { id: 's2' }, status: 'idle' })
-  assert.equal(sent.length, 3)
+  assert.equal(sent.length, 4)
 })
 
 test('approval next still runs when notify throws', async () => {
