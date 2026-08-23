@@ -50,7 +50,7 @@ test('a deduped echo owns no sound, so concurrent tabs cannot double-chime', asy
   assert.match(source, /const verdict = \(result\) => \(\{/)
   assert.match(source, /result\.accepted !== false/)
   assert.match(source, /outcome\.soundOwned\) playTone/)
-  assert.match(source, /result\.reason === 'deduped'/)
+  assert.match(source, /result\.reason === 'deduped' && result\.banner === true/)
 })
 
 test('blocking waits release the tab title and re-arm the next occurrence', async () => {
