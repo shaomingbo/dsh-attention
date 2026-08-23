@@ -108,6 +108,19 @@ test('the same key delivered twice is deduped and reports no banner', async () =
   assert.equal(sent.length, 1)
 })
 
+test('two tabs reporting the same window bucket produce one banner', async () => {
+  const { host, sent } = await createHost()
+  await host.handle('notify', {
+    kind: 'completed', sessionId: 's1', key: 'completed:s1:59583', sound: false,
+  })
+  const echo = await host.handle('notify', {
+    kind: 'completed', sessionId: 's1', key: 'completed:s1:59583', sound: false,
+  })
+  assert.equal(echo.value.accepted, false)
+  assert.equal(echo.value.reason, 'deduped')
+  assert.equal(sent.length, 1)
+})
+
 test('a fresh heartbeat defers every backup to the live client', async () => {
   const { host, sent, clock } = await createHost()
   await host.handle('visibility', { visibility: 'hidden' })

@@ -31,11 +31,12 @@ test('browser bundle implements title, favicon, sound, and notification fallback
   assert.match(source, /988/)
 })
 
-test('completions fire on the running edge with unique keys and no debug hooks', async () => {
+test('completions fire on the running edge with window-bucketed keys', async () => {
   const source = await readFile(clientPath, 'utf8')
   assert.match(source, /previous === true && row\.running === false/)
   assert.match(source, /fireCompleted/)
-  assert.match(source, /fireSeq\.current \+= 1/)
+  assert.match(source, /Math\.floor\(Date\.now\(\) \/ 30_000\)/)
+  assert.doesNotMatch(source, /fireSeq/)
   assert.doesNotMatch(source, /__DSH_ATTENTION_TEST/)
 })
 
