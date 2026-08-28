@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
 import { mkdtemp, readFile, writeFile, mkdir, rm } from 'node:fs/promises'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
@@ -191,6 +193,24 @@ test('invalid arguments are rejected', async () => {
     for (const argv of [['--nope'], ['status', 'install'], ['--profile']]) {
       await assert.rejects(() => run(argv, { home, installDeps: async () => {} }))
     }
+  } finally {
+    await rm(home, { recursive: true, force: true })
+  }
+})
+
+test('the CLI entry runs when launched through a symlinked temp path', async () => {
+  // Regression: Node resolves the ESM entry to its realpath (/private/var/…),
+  // so a naive argv[1] comparison made main() silently skip on macOS temp dirs.
+  const { home } = await makeProfile()
+  try {
+    const entry = fileURLToPath(new URL('../bin/install.js', import.meta.url))
+    const child = spawnSync(process.execPath, [entry, 'status'], {
+      encoding: 'utf8',
+      env: { ...process.env, DSH_HOME: home },
+      cwd: home,
+    })
+    assert.equal(child.status, 1, `expected status exit 1, got ${child.status}; stdout: ${child.stdout}`)
+    assert.match(child.stdout, /not installed/)
   } finally {
     await rm(home, { recursive: true, force: true })
   }
