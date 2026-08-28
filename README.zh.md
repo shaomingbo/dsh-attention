@@ -28,7 +28,7 @@
 首选——用固定 release tag 配合包自带的无参数安装器：
 
 ```bash
-npx --yes github:shaomingbo/dsh-attention#v0.1.0
+npx --yes github:shaomingbo/dsh-attention#v0.1.3
 ```
 
 不带子命令等同 `install`。安装器只改目标 profile（默认 `web`）`package.json` 里的 `dependencies.dsh-attention` 和 `dsh.profile.bundles`，用临时文件加原子 rename 写入，然后在该 profile 目录运行 `pnpm install --ignore-scripts`。它不会停止或重启 DSH。
@@ -36,19 +36,19 @@ npx --yes github:shaomingbo/dsh-attention#v0.1.0
 查看安装状态：
 
 ```bash
-npx --yes github:shaomingbo/dsh-attention#v0.1.0 status
+npx --yes github:shaomingbo/dsh-attention#v0.1.3 status
 ```
 
 卸载（幂等——重复执行安全；依赖安装失败时自动恢复原 manifest）：
 
 ```bash
-npx --yes github:shaomingbo/dsh-attention#v0.1.0 uninstall
+npx --yes github:shaomingbo/dsh-attention#v0.1.3 uninstall
 ```
 
 所有命令都支持 `--profile <name>`（默认 `web`）、`--source <source>`、`-h`/`--help`。默认 source 固定在当前 SemVer tag；本地开发可用 `link:` 指向 checkout：
 
 ```bash
-npx --yes github:shaomingbo/dsh-attention#v0.1.0 --source link:/path/to/dsh-attention
+npx --yes github:shaomingbo/dsh-attention#v0.1.3 --source link:/path/to/dsh-attention
 ```
 
 安装或卸载后：手动重启 `dsh web`，然后硬刷新浏览器。
@@ -58,7 +58,7 @@ npx --yes github:shaomingbo/dsh-attention#v0.1.0 --source link:/path/to/dsh-atte
 ```json
 {
   "dependencies": {
-    "dsh-attention": "github:shaomingbo/dsh-attention#v0.1.0"
+    "dsh-attention": "github:shaomingbo/dsh-attention#v0.1.3"
   },
   "dsh": {
     "profile": { "bundles": ["dsh-attention"] }

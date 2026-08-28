@@ -39,7 +39,7 @@ test('applyManifest is idempotent and keeps existing bundles', () => {
     dependencies: { 'dsh-file-picker': 'link:/tmp/picker' },
     dsh: { profile: { bundles: ['@deepseek-ai/dsh-web-app', 'dsh-file-picker'] } },
   }, 'link:/tmp/attention')
-  const second = applyManifest(first, 'github:shaomingbo/dsh-attention#v0.1.0')
+  const second = applyManifest(first, 'github:shaomingbo/dsh-attention#v0.1.3')
   assert.equal(first.dependencies[PACKAGE_NAME], 'link:/tmp/attention')
   assert.deepEqual(first.dsh.profile.bundles, [
     '@deepseek-ai/dsh-web-app',
@@ -47,7 +47,7 @@ test('applyManifest is idempotent and keeps existing bundles', () => {
     PACKAGE_NAME,
   ])
   assert.equal(second.dsh.profile.bundles.filter((name) => name === PACKAGE_NAME).length, 1)
-  assert.equal(second.dependencies[PACKAGE_NAME], 'github:shaomingbo/dsh-attention#v0.1.0')
+  assert.equal(second.dependencies[PACKAGE_NAME], 'github:shaomingbo/dsh-attention#v0.1.3')
 })
 
 test('removeManifest strips the dependency and bundle entry, and is idempotent', () => {

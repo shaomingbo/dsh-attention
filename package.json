@@ -1,6 +1,6 @@
 {
   "name": "dsh-attention",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "description": "Desktop attention alerts for DeepSeek Harness Web: tab title, favicon, sound, and native OS notifications when an agent needs approval or finishes a turn.",
   "type": "module",
   "main": "lib/index.js",
