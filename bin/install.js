@@ -8,14 +8,23 @@ import { fileURLToPath } from 'node:url'
 
 export const PACKAGE_NAME = 'dsh-attention'
 export const DEFAULT_SOURCE = 'github:shaomingbo/dsh-attention#v0.1.0'
+const COMMANDS = ['install', 'status', 'uninstall']
 
 export function parseArgs(argv) {
-  const result = { profile: 'web', source: process.env.DSH_ATTENTION_SOURCE || DEFAULT_SOURCE }
+  const result = {
+    command: 'install',
+    profile: 'web',
+    source: process.env.DSH_ATTENTION_SOURCE || DEFAULT_SOURCE,
+  }
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
     if (arg === '--profile') result.profile = argv[++index]
     else if (arg === '--source') result.source = argv[++index]
     else if (arg === '--help' || arg === '-h') result.help = true
+    else if (COMMANDS.includes(arg)) {
+      if (result.command !== 'install') throw new Error(`unexpected argument: ${arg}`)
+      result.command = arg
+    }
     else throw new Error(`unknown argument: ${arg}`)
   }
   if (!result.profile || !result.source) throw new Error('--profile and --source require values')
@@ -41,7 +50,32 @@ export function applyManifest(manifest, source) {
   return next
 }
 
-function runInstall(profileDir) {
+export function removeManifest(manifest) {
+  const next = { ...manifest }
+  if (next.dependencies && PACKAGE_NAME in next.dependencies) {
+    next.dependencies = { ...next.dependencies }
+    delete next.dependencies[PACKAGE_NAME]
+  }
+  if (Array.isArray(next.dsh?.profile?.bundles)) {
+    const bundles = next.dsh.profile.bundles.filter((name) => name !== PACKAGE_NAME)
+    if (bundles.length !== next.dsh.profile.bundles.length) {
+      next.dsh = {
+        ...next.dsh,
+        profile: { ...next.dsh.profile, bundles },
+      }
+    }
+  }
+  return next
+}
+
+export function describeStatus(manifest) {
+  const source = manifest.dependencies?.[PACKAGE_NAME] ?? null
+  const bundled = Array.isArray(manifest.dsh?.profile?.bundles)
+    && manifest.dsh.profile.bundles.includes(PACKAGE_NAME)
+  return { installed: Boolean(source) && bundled, source, bundled }
+}
+
+function runPnpmInstall(profileDir) {
   const attempts = [
     ['pnpm', ['install', '--ignore-scripts']],
     ['corepack', ['pnpm', 'install', '--ignore-scripts']],
@@ -67,21 +101,73 @@ async function atomicWrite(path, content) {
   }
 }
 
-async function main() {
-  const options = parseArgs(process.argv.slice(2))
+function printHelp() {
+  console.log(`Usage: ${PACKAGE_NAME} [command] [--profile web] [--source ${DEFAULT_SOURCE}]
+
+Commands:
+  install     Add the attention bundle to the profile (default)
+  status      Show whether the attention bundle is installed
+  uninstall   Remove the attention bundle from the profile (idempotent)
+
+Options:
+  --profile <name>   Target DSH profile (default: web)
+  --source <source>  Package source (default: ${DEFAULT_SOURCE},
+                     override with the DSH_ATTENTION_SOURCE environment variable)
+  -h, --help         Show this help
+
+The installer only edits dependencies.${PACKAGE_NAME} and dsh.profile.bundles in
+the profile package.json, then runs pnpm install --ignore-scripts there.
+It never stops or restarts DSH; restart DSH manually afterwards.`)
+}
+
+export async function run(argv = process.argv.slice(2), deps = {}) {
+  const installDeps = deps.installDeps ?? runPnpmInstall
+  const options = parseArgs(argv)
   if (options.help) {
-    console.log(`Usage: ${PACKAGE_NAME} [--profile web] [--source ${DEFAULT_SOURCE}]\n\nInstalls the attention bundle into a DSH profile.`)
+    printHelp()
     return
   }
 
-  const home = resolve(process.env.DSH_HOME || join(homedir(), '.dsh'))
+  const home = resolve(deps.home ?? process.env.DSH_HOME ?? join(homedir(), '.dsh'))
   const profileDir = join(home, 'profiles', options.profile)
   const packagePath = join(profileDir, 'package.json')
+
+  if (options.command === 'status') {
+    const manifest = JSON.parse(await readFile(packagePath, 'utf8'))
+    const status = describeStatus(manifest)
+    console.log(`${PACKAGE_NAME} in profile ${options.profile}: ${status.installed ? 'installed' : 'not installed'}`)
+    console.log(`  dependency: ${status.source ?? '(absent)'}`)
+    console.log(`  bundle entry: ${status.bundled ? 'present' : 'absent'}`)
+    if (!status.installed) process.exitCode = 1
+    return
+  }
+
+  if (options.command === 'uninstall') {
+    const original = await readFile(packagePath, 'utf8')
+    const manifest = JSON.parse(original)
+    const status = describeStatus(manifest)
+    if (!status.source && !status.bundled) {
+      console.log(`${PACKAGE_NAME} is not installed in profile ${options.profile}; nothing to do.`)
+      return
+    }
+    const next = removeManifest(manifest)
+    await atomicWrite(packagePath, `${JSON.stringify(next, null, 2)}\n`)
+    try {
+      await installDeps(profileDir)
+    } catch (error) {
+      await atomicWrite(packagePath, original)
+      throw error
+    }
+    console.log(`\nRemoved ${PACKAGE_NAME} from ${profileDir}`)
+    console.log('Restart DSH and hard-refresh the Web page to unload the bundle.')
+    return
+  }
+
   const original = await readFile(packagePath, 'utf8')
   const next = applyManifest(JSON.parse(original), options.source)
   await atomicWrite(packagePath, `${JSON.stringify(next, null, 2)}\n`)
   try {
-    runInstall(profileDir)
+    await installDeps(profileDir)
   } catch (error) {
     await atomicWrite(packagePath, original)
     throw error
@@ -89,6 +175,10 @@ async function main() {
 
   console.log(`\nInstalled ${PACKAGE_NAME} into ${profileDir}`)
   console.log('Restart DSH and hard-refresh the Web page so the attention bundle enters the boot graph.')
+}
+
+async function main() {
+  await run()
 }
 
 const invoked = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])

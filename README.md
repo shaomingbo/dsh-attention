@@ -25,33 +25,50 @@ When the native notifier binary is missing (`notify-send` absent, and so on), th
 
 ## Install
 
-```bash
-dsh plugin --profile web add github:shaomingbo/dsh-attention#v0.1.0
-```
-
-Or run the package installer:
+Preferred — install the fixed release tag with the package's own no-argument installer:
 
 ```bash
 npx --yes github:shaomingbo/dsh-attention#v0.1.0
 ```
 
-Restart `dsh web`, then hard-refresh the browser. To update:
+No arguments is the same as `install`. The installer only edits `dependencies.dsh-attention` and `dsh.profile.bundles` in the target profile's `package.json` (default profile `web`), writes it atomically, then runs `pnpm install --ignore-scripts` in that profile directory. It never stops or restarts DSH.
+
+Check installation state:
 
 ```bash
-dsh plugin --profile web update dsh-attention
+npx --yes github:shaomingbo/dsh-attention#v0.1.0 status
 ```
 
-To remove it:
+Remove it (idempotent — safe to run twice, restores the manifest if dependency installation fails):
 
 ```bash
-dsh plugin --profile web remove dsh-attention
+npx --yes github:shaomingbo/dsh-attention#v0.1.0 uninstall
 ```
 
-For a local checkout:
+Options available to every command: `--profile <name>` (default `web`), `--source <source>`, `-h`/`--help`. The default source is pinned to the current SemVer tag; you can also point it at a local checkout with `link:`:
 
 ```bash
-npx --yes /path/to/dsh-attention --source link:/path/to/dsh-attention
+npx --yes github:shaomingbo/dsh-attention#v0.1.0 --source link:/path/to/dsh-attention
 ```
+
+After installing or uninstalling: restart `dsh web` manually, then hard-refresh the browser.
+
+Manual fallback — edit `~/.dsh/profiles/web/package.json` yourself:
+
+```json
+{
+  "dependencies": {
+    "dsh-attention": "github:shaomingbo/dsh-attention#v0.1.0"
+  },
+  "dsh": {
+    "profile": { "bundles": ["dsh-attention"] }
+  }
+}
+```
+
+Then run `pnpm install --ignore-scripts` in that profile directory and restart DSH.
+
+If you manage bundles through `dsh plugin` instead, the equivalents are `dsh plugin --profile web add|update|remove dsh-attention`.
 
 ## Settings
 

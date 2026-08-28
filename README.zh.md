@@ -25,33 +25,50 @@
 
 ## 安装
 
-```bash
-dsh plugin --profile web add github:shaomingbo/dsh-attention#v0.1.0
-```
-
-或运行包装安装器：
+首选——用固定 release tag 配合包自带的无参数安装器：
 
 ```bash
 npx --yes github:shaomingbo/dsh-attention#v0.1.0
 ```
 
-重启 `dsh web`，然后硬刷新浏览器。更新：
+不带子命令等同 `install`。安装器只改目标 profile（默认 `web`）`package.json` 里的 `dependencies.dsh-attention` 和 `dsh.profile.bundles`，用临时文件加原子 rename 写入，然后在该 profile 目录运行 `pnpm install --ignore-scripts`。它不会停止或重启 DSH。
+
+查看安装状态：
 
 ```bash
-dsh plugin --profile web update dsh-attention
+npx --yes github:shaomingbo/dsh-attention#v0.1.0 status
 ```
 
-卸载：
+卸载（幂等——重复执行安全；依赖安装失败时自动恢复原 manifest）：
 
 ```bash
-dsh plugin --profile web remove dsh-attention
+npx --yes github:shaomingbo/dsh-attention#v0.1.0 uninstall
 ```
 
-本地 checkout：
+所有命令都支持 `--profile <name>`（默认 `web`）、`--source <source>`、`-h`/`--help`。默认 source 固定在当前 SemVer tag；本地开发可用 `link:` 指向 checkout：
 
 ```bash
-npx --yes /path/to/dsh-attention --source link:/path/to/dsh-attention
+npx --yes github:shaomingbo/dsh-attention#v0.1.0 --source link:/path/to/dsh-attention
 ```
+
+安装或卸载后：手动重启 `dsh web`，然后硬刷新浏览器。
+
+手动兜底——直接编辑 `~/.dsh/profiles/web/package.json`：
+
+```json
+{
+  "dependencies": {
+    "dsh-attention": "github:shaomingbo/dsh-attention#v0.1.0"
+  },
+  "dsh": {
+    "profile": { "bundles": ["dsh-attention"] }
+  }
+}
+```
+
+然后在该 profile 目录运行 `pnpm install --ignore-scripts` 并重启 DSH。
+
+如果你用 `dsh plugin` 管理 bundle，等价命令是 `dsh plugin --profile web add|update|remove dsh-attention`。
 
 ## 设置
 
