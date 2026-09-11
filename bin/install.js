@@ -8,7 +8,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export const PACKAGE_NAME = 'dsh-attention'
-export const DEFAULT_SOURCE = 'github:shaomingbo/dsh-attention#v0.1.3'
+export const DEFAULT_SOURCE = 'github:shaomingbo/dsh-attention#v0.1.4'
 const COMMANDS = ['install', 'status', 'uninstall']
 
 export function parseArgs(argv) {
