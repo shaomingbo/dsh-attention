@@ -13,6 +13,14 @@ test('browser bundle uses the DSH client-module handoff and required slots', asy
   assert.match(source, /settings\.section/)
   assert.match(source, /connection\.rpc\.call/)
   assert.match(source, /CHANNEL = '\/attention'/)
+  // 0.1.7: interaction/completion facts arrive through useSessionStatus, the
+  // foreground session is the main-view-retained row, and notification clicks
+  // navigate through the public uiWorkspace face.
+  assert.match(source, /useSessionStatus/)
+  assert.match(source, /completionUnread/)
+  assert.match(source, /retainedBy\?\.mainView/)
+  assert.match(source, /uiWorkspace/)
+  assert.match(source, /openSession\?\.\(/)
 })
 
 test('browser bundle implements title, favicon, sound, and notification fallback', async () => {

@@ -1,6 +1,6 @@
 {
   "name": "dsh-attention",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Desktop attention alerts for DeepSeek Harness Web: tab title, favicon, sound, and native OS notifications when an agent needs approval or finishes a turn.",
   "type": "module",
   "main": "lib/index.js",
@@ -39,7 +39,6 @@
     "client": {
       "inject": [
         "@deepseek-ai/dsh-client-connection",
-        "@deepseek-ai/dsh-client-runtime",
         "@deepseek-ai/dsh-client-ui-settings",
         "@deepseek-ai/dsh-client-ui-slots"
       ],
