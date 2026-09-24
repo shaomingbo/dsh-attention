@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { mkdtemp, readFile, writeFile, mkdir, rm } from 'node:fs/promises'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -214,4 +215,9 @@ test('the CLI entry runs when launched through a symlinked temp path', async () 
   } finally {
     await rm(home, { recursive: true, force: true })
   }
+})
+
+test('default source always tracks the package version (N1 identity guard)', () => {
+  const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+  assert.equal(DEFAULT_SOURCE, `github:shaomingbo/dsh-attention#v${pkg.version}`)
 })

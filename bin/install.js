@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process'
-import { realpathSync } from 'node:fs'
+import { readFileSync, realpathSync } from 'node:fs'
 import { readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export const PACKAGE_NAME = 'dsh-attention'
-export const DEFAULT_SOURCE = 'github:shaomingbo/dsh-attention#v0.1.4'
+const PACKAGE_VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version
+export const DEFAULT_SOURCE = `github:shaomingbo/dsh-attention#v${PACKAGE_VERSION}`
 const COMMANDS = ['install', 'status', 'uninstall']
 
 export function parseArgs(argv) {
